@@ -90,7 +90,7 @@ def main(filename: str) -> Tuple[Optional[int], Optional[int]]:
     digits = parse(filename)
     shape = (2, 2) if "sample" in filename else (6, 25)
     answer_b = p2(digits, shape)
-    # run_program(intcode, inp=5)
+    # run_program(intcode, inp_l=5)
     end = time()
     print(end - start)
     return answer_a, answer_b

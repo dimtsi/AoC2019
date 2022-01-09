@@ -197,7 +197,7 @@ def main(filename: str) -> Tuple[Optional[int], Optional[int]]:
     if "sample2" in filename:
         best_pos = (3, 8)
     answer_b = p2(grid, best_pos)
-    # run_program(intcode, inp=5)
+    # run_program(intcode, inp_l=5)
     end = time()
     print(end - start)
     return answer_a, answer_b

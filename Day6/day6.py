@@ -94,7 +94,7 @@ def main(filename: str) -> Tuple[Optional[int], Optional[int]]:
         filename = "sample2.txt"
     orbits, g = parse(filename)
     answer_b = find_path_to_santa(orbits, g)
-    # run_program(intcode, inp=5)
+    # run_program(intcode, inp_l=5)
     end = time()
     print(end - start)
     return answer_a, answer_b

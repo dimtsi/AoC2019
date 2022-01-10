@@ -85,7 +85,7 @@ def explore_neighbors(intcode):
         intcode.add_input(move)
         intcode.run()
         found.append(intcode.outs[-1])
-        # reverse to start
+        # reverse to start_pos
         if intcode.outs[-1] in {1, 2}:
             intcode.add_input(BACKTR[move])
             intcode.run()

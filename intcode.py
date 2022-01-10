@@ -58,6 +58,7 @@ class IntCode:
             elif op == 3:
                 assert modes[-1] in {0, 2}
                 if not self.inputs:
+                    f"waiting for input. Returning"
                     return
                 else:
                     target_addr = params[-1] if modes[-1] == 0 else params[-1] + self.rel_base

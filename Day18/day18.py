@@ -20,39 +20,24 @@ from time import sleep
 from intcode import IntCode
 from termcolor import colored
 
-UP, DOWN, LEFT, RIGHT = range(1, 5)
-BACKTR = {UP: DOWN, LEFT: RIGHT, RIGHT: LEFT, DOWN: UP}
-
 
 def parse(filename: str):
     matrix = []
     with open(filename, "r") as f:
         lines = f.read().strip().split("\n")
-    all_keys = set()
+    all_keys = {}
+    all_doors = {}
+    start = None
     for i, line in enumerate(lines):
         for j in range(len(line)):
             if line[j].islower():
-                all_keys.add(line[j])
+                all_keys[line[j]] = (i, j)
+            elif line[j].isupper():
+                all_doors[line[j]] = (i, j)
             elif line[j] == "@":
                 start = (i, j)
 
-
-    return [list(line) for line in lines], start, all_keys
-
-
-class State:
-    def __init__(self, pos, found):
-        self.pos = pos
-        self.found = found
-
-    def __repr__(self):
-        return f"State, pos: {self.pos}, found: {self.found}"
-    
-    def __lt__(self, other):
-        return hash(self) < hash(other)
-
-    def __hash__(self):
-        return hash(self.pos) + hash(tuple(self.found))
+    return [list(line) for line in lines], start, all_keys, all_doors
 
 
 def pprint(grid):
@@ -61,13 +46,14 @@ def pprint(grid):
 
 
 def get_neighbors_vals(
-    matrix: List[List[str]], state: State,
+    matrix: List[List[str]], pos, found, all_doors=False,
     p2=False) -> Generator[Tuple[Tuple[int, int], str], None, None]:
-    if not p2:
-        (i, j), found = state
-    else:
-        curr_positions, found, move = state
-        i, j = curr_positions[move]
+    # if not p2:
+    #     (i, j), found = state
+    # else:
+    #     curr_positions, found, move = state
+    #     i, j = curr_positions[move]
+    i, j = pos
 
     neighbors = []
 
@@ -83,48 +69,88 @@ def get_neighbors_vals(
     if j + 1 < num_cols:
         neighbors.append((i, j + 1))
 
-    yield from (
-        ((x, y), matrix[x][y])
-        for (x, y) in neighbors
-        if not (matrix[x][y] == "#" or (matrix[x][y].isupper() and matrix[x][y].lower() not in found))
-    )
+    if not all_doors:
+        yield from (
+            ((x, y), matrix[x][y])
+            for (x, y) in neighbors
+            if not (matrix[x][y] == "#" or (matrix[x][y].isupper() and matrix[x][y].lower() not in found))
+        )
+    else:
+        yield from (
+            ((x, y), matrix[x][y])
+            for (x, y) in neighbors
+            if not (matrix[x][y] == "#")
+        )
 
 
-def min_cost(matrix, start, all_keys):
+def dfs(pos, grid, start, visited, found, dist, p2=False):
+    val = grid[pos[0]][pos[1]]
 
+    if pos in visited and visited[pos] < dist:
+        return
+    visited[pos] = dist
+    if val != "." and val != start:
+        found[start][val] = dist
+        if len(found) > 0:
+            return
+
+    neighbors = get_neighbors_vals(grid, pos, set(), all_doors=True, p2=p2)
+    for neigh, val in neighbors:
+        if neigh not in visited or visited[neigh] > dist + 1:
+            dfs(neigh, grid, start, visited, found, dist + 1)
+
+    return found
+
+
+def create_adj_list(matrix, start_pos, all_keys, all_doors, p2=False):
+    if not p2:
+        all_elems = {"@": start_pos, **all_keys, **all_doors}
+    else:
+        all_elems = {**all_keys, **all_doors}
+        all_elems.update(start_pos)
+
+    adj = {}
+    for elem in all_elems:
+         adj.update(dfs(all_elems[elem], matrix, elem, dict(), defaultdict(dict), 0))
+    return adj
+
+
+def min_cost(matrix, start_pos, all_keys, all_doors):
+    G = create_adj_list(matrix, start_pos, all_keys, all_doors)
     complete = set()
-    complete_pos_dist = set()
     min_dist = float("inf")
-    start_state = (start, tuple())
 
     distances = defaultdict(lambda: float("inf"))
+    start_state = ("@", tuple())
     distances[start_state] = 0
     pq = [(0, start_state)]
     visited = set()
 
+    # x = dfs(start_state, matrix, dict(), dict(), 0)
+    # print()
     while pq:
         dist, state = heappop(pq)
-        if state in visited or dist > min_dist:
+        elem, found = state
+        if state in visited:
             continue
         visited.add(state)
-        for (i, j), val in get_neighbors_vals(matrix, state):
 
-            new_state = ((i, j), state[1])
+        neighbors = G[elem]
+        if neighbors:
+            for new_key, dist_to_key in neighbors.items():
+                if new_key.isupper() and new_key.lower() not in found:
+                    continue
+                new_state = (new_key,
+                             found if not new_key.islower()
+                             else tuple(sorted(set(found) | set(new_key))))
 
-            if val.islower():
-                new_pos, new_found = new_state
-                new_state = ((i, j), tuple(sorted(set(new_found) | set(val))))
-            if new_state not in visited or distances[new_state] > dist + 1:
-                if dist + 1 > min_dist:
-                    continue
-                distances[new_state] = dist + 1
-                if val.islower() and len(new_state[1]) == len(all_keys):
-                    complete_pos_dist.add((new_state, distances[new_state]))
-                    complete.add(distances[new_state])
-                    min_dist = min(complete)
-                    continue
-                heappush(pq, (dist + 1, new_state))
-    min_dist = min(complete)
+                if new_state not in visited or distances[new_state] >= dist + dist_to_key:
+                    distances[new_state] = dist + dist_to_key
+                    if len(new_state[1]) == len(all_keys):
+                        complete.add(distances[new_state])
+                        min_dist = min(min_dist, distances[new_state])
+                        continue
+                    heappush(pq, (dist + dist_to_key, new_state))
 
     return min_dist
 
@@ -132,10 +158,10 @@ def min_cost(matrix, start, all_keys):
 def modify_grid_for_p2(grid, start):
     i, j = start
 
-    grid[i + 1][j - 1] = "@"
-    grid[i + 1][j + 1] = "@"
-    grid[i - 1][j - 1] = "@"
-    grid[i - 1][j + 1] = "@"
+    grid[i + 1][j - 1] = "@1"
+    grid[i + 1][j + 1] = "@2"
+    grid[i - 1][j - 1] = "@3"
+    grid[i - 1][j + 1] = "@4"
 
     grid[i][j + 1] = "#"
     grid[i + 1][j] = "#"
@@ -143,66 +169,74 @@ def modify_grid_for_p2(grid, start):
     grid[i][j - 1] = "#"
     grid[i][j] = "#"
     pprint(grid)
-    start_positions = (
-        (i + 1, j - 1),
-        (i + 1, j + 1),
-        (i - 1, j - 1),
-        (i - 1, j + 1),
-    )
+    start_positions = {
+        "@1": (i + 1, j - 1),
+        "@2": (i + 1, j + 1),
+        "@3": (i - 1, j - 1),
+        "@4": (i - 1, j + 1),
+    }
     return start_positions
 
 
-def get_new_states(state, new_pos, val):
-    move = state[2]
-    new_state = [list(state[0]), state[1], state[2]]
-    new_state[0][move] = new_pos
-    if val.islower():
-        new_state[1] = tuple(sorted(set(new_state[1]) | set(val)))
-    for i in range(4):
-        yield tuple([tuple(new_state[0]), new_state[1], i])
+def get_keys_per_region(start, adj):
+    visited = set()
+    q = [start]
+    region_keys = set()
+
+    while q:
+        elem = q.pop()
+        if elem.islower():
+            region_keys.add(elem)
+
+        visited.add(elem)
+        for neigh in adj[elem].keys():
+            if neigh not in visited:
+                q.append(neigh)
+    return region_keys
 
 
 
-def min_cost_p2(matrix, start, all_keys):
+def min_cost_p2(matrix, start_pos, all_keys, all_doors):
+    G = create_adj_list(matrix, start_pos, all_keys, all_doors, p2=True)
+    keys_per_region = [get_keys_per_region(x, G) for x in ("@1", "@2", "@3", "@4")]
 
     complete = set()
-    complete_pos_dist = set()
     min_dist = float("inf")
-    start_states = list((start, tuple(), i) for i in range(4))
 
     distances = defaultdict(lambda: float("inf"))
-    distances.update({state: 0 for state in start_states})
-    pq = [(0, state) for state in start_states]
+    start_state = (("@1", "@2", "@3", "@4"), tuple())
+    distances[start_state] = 0
+    pq = [(0, start_state)]
     visited = set()
 
+    # x = dfs(start_state, matrix, dict(), dict(), 0)
+    # print()
     while pq:
         dist, state = heappop(pq)
-        if state in visited or dist > min_dist:
+        elements, found = state
+        if state in visited:
             continue
         visited.add(state)
-        for (i, j), val in get_neighbors_vals(matrix, state, p2=True):
-            new_states = list(get_new_states(state, (i, j), val))
-            # new_state = ((i, j), state[1])
 
-            for new_state in new_states:
-
-                # new_pos, new_found, new_move = new_state
-                # if new_found == ("b", "c") and new_move == 2:
-                #     x = new_state in visited
-                #     y = distances[new_state]
-                #     print()
-
-                if new_state not in visited or distances[new_state] > dist + 1:
-                    # if dist + 1 > min_dist:
-                    #     continue
-                    distances[new_state] = dist + 1
-                    if val.islower() and len(new_state[1]) == len(all_keys):
-                        complete_pos_dist.add((new_state, distances[new_state]))
-                        complete.add(distances[new_state])
-                        min_dist = min(complete)
+        for i, elem in enumerate(elements):
+            if not set(keys_per_region[i]) - set(found): # already found all keys for specific one
+                continue
+            neighbors = G[elem]
+            if neighbors:
+                for new_key, dist_to_key in neighbors.items():
+                    if new_key.isupper() and new_key.lower() not in found:
                         continue
-                    heappush(pq, (dist + 1, new_state))
-    min_dist = min(complete)
+                    new_state = (tuple(elements[j] if j != i else new_key for j in range(4)),
+                                 found if not new_key.islower()
+                                 else tuple(sorted(set(found) | set(new_key))))
+
+                    if new_state not in visited or distances[new_state] > dist + dist_to_key:
+                        distances[new_state] = dist + dist_to_key
+                        if len(new_state[1]) == len(all_keys):
+                            complete.add(distances[new_state])
+                            min_dist = min(min_dist, distances[new_state])
+                            continue
+                        heappush(pq, (dist + dist_to_key, new_state))
 
     return min_dist
 
@@ -212,15 +246,17 @@ def main(filename: str) -> Tuple[Optional[int], Optional[int]]:
 
     start = time()
     answer_a, answer_b = None, None
-    grid, start_pos, all_keys = parse(filename)
-    answer_a = min_cost(grid, start_pos, all_keys)
+    grid, start_pos, all_keys, all_doors = parse(filename)
+    answer_a = min_cost(grid, start_pos, all_keys, all_doors)
     print(f"p1: {answer_a}")
-    # #p2
-    grid, start_pos, all_keys = parse(filename)
+    #p2
+    if "sample" in filename:
+        filename = "sample2.txt"
+    grid, start_pos, all_keys, all_doors = parse(filename)
     new_start_pos = modify_grid_for_p2(grid, start_pos)
-    pprint(grid)
-    answer_b = min_cost_p2(grid, new_start_pos, all_keys)
-    # print(f"p2: {answer_b}")
+    print()
+    answer_b = min_cost_p2(grid, new_start_pos, all_keys, all_doors)
+    print(f"p2: {answer_b}")
     end = time()
     print(end - start)
     return answer_a, answer_b
@@ -230,11 +266,13 @@ if __name__ == "__main__":
 
     from utils import submit_answer
     from aocd.exceptions import AocdError
+    from aocd.models import Puzzle
+    puzzle = Puzzle(year=2019, day=18)
 
     sample = "sample.txt"
     inp = "input.txt"
 
-    sample_a_answer = 114
+    sample_a_answer = 132
     sample_b_answer = 72
 
     answer_a, answer_b = main(sample)
@@ -251,7 +289,7 @@ if __name__ == "__main__":
     # Test on your input and submit
     answer_a, answer_b = main(inp)
     print(f"Your input answers: \nA: {answer_a}\nB: {answer_b}")
-    try:
-        submit_answer(answer_a, "a", day=15, year=2019)
-    except AocdError:
-        submit_answer(answer_b, "b", day=15, year=2019)
+    # try:
+    #     submit_answer(answer_a, "a", day=15, year=2019)
+    # except AocdError:
+    #     submit_answer(answer_b, "b", day=15, year=2019)

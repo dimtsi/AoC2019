@@ -23,16 +23,15 @@ from termcolor import colored
 UP, DOWN, LEFT, RIGHT = range(1, 5)
 BACKTR = {UP: DOWN, LEFT: RIGHT, RIGHT: LEFT, DOWN: UP}
 
-
 def parse(filename: str):
     matrix = []
     with open(filename, "r") as f:
         lines = f.read().strip().split("\n")
-    all_keys = set()
+    all_keys = {}
     for i, line in enumerate(lines):
         for j in range(len(line)):
             if line[j].islower():
-                all_keys.add(line[j])
+                all_keys[line[j]] = (i, j)
             elif line[j] == "@":
                 start = (i, j)
 
@@ -90,10 +89,27 @@ def get_neighbors_vals(
     )
 
 
+def dfs(state, grid, visited: Dict, found, dist, p2=False):
+    curr_pos = state[0] if not p2 else state[0][state[2]]
+    val = grid[curr_pos[0]][curr_pos[1]]
+
+    visited[state] = val
+
+    neighbors = get_neighbors_vals(grid, state, p2)
+    for neigh, val in neighbors:
+        new_state = (neigh, state[1] if not val.islower() else tuple(sorted(set(state[1]) | set(val))))
+        if (new_state) not in visited:
+            if val.islower() and val not in state[1]:
+                found[state][new_state] = dist + 1
+                dfs(new_state, grid, visited, found, dist + 1)
+            else:
+                dfs((neigh, state[1]), grid, visited, found, dist + 1)
+    return found
+
+
 def min_cost(matrix, start, all_keys):
 
     complete = set()
-    complete_pos_dist = set()
     min_dist = float("inf")
     start_state = (start, tuple())
 
@@ -102,28 +118,26 @@ def min_cost(matrix, start, all_keys):
     pq = [(0, start_state)]
     visited = set()
 
+    # x = dfs(start_state, matrix, dict(), dict(), 0)
+    # print()
     while pq:
         dist, state = heappop(pq)
         if state in visited or dist > min_dist:
             continue
         visited.add(state)
-        for (i, j), val in get_neighbors_vals(matrix, state):
+        candidates = dfs(state, matrix, dict(), defaultdict(dict), 0)
+        if candidates:
+            for new_key, dist_to_key in candidates.items():
+                found_keys = tuple(sorted(set(state[1]) | set(new_key)))
+                new_state = (all_keys[new_key], found_keys)
 
-            new_state = ((i, j), state[1])
-
-            if val.islower():
-                new_pos, new_found = new_state
-                new_state = ((i, j), tuple(sorted(set(new_found) | set(val))))
-            if new_state not in visited or distances[new_state] > dist + 1:
-                if dist + 1 > min_dist:
-                    continue
-                distances[new_state] = dist + 1
-                if val.islower() and len(new_state[1]) == len(all_keys):
-                    complete_pos_dist.add((new_state, distances[new_state]))
-                    complete.add(distances[new_state])
-                    min_dist = min(complete)
-                    continue
-                heappush(pq, (dist + 1, new_state))
+                if new_state not in visited and distances[new_state] > dist + dist_to_key:
+                    distances[new_state] = dist + dist_to_key
+                    if len(new_state[1]) == len(all_keys):
+                        complete.add(distances[new_state])
+                        min_dist = min(complete)
+                        continue
+                    heappush(pq, (dist + dist_to_key, new_state))
     min_dist = min(complete)
 
     return min_dist
@@ -152,17 +166,6 @@ def modify_grid_for_p2(grid, start):
     return start_positions
 
 
-def get_new_states(state, new_pos, val):
-    move = state[2]
-    new_state = [list(state[0]), state[1], state[2]]
-    new_state[0][move] = new_pos
-    if val.islower():
-        new_state[1] = tuple(sorted(set(new_state[1]) | set(val)))
-    for i in range(4):
-        yield tuple([tuple(new_state[0]), new_state[1], i])
-
-
-
 def min_cost_p2(matrix, start, all_keys):
 
     complete = set()
@@ -174,34 +177,27 @@ def min_cost_p2(matrix, start, all_keys):
     distances.update({state: 0 for state in start_states})
     pq = [(0, state) for state in start_states]
     visited = set()
-
     while pq:
         dist, state = heappop(pq)
         if state in visited or dist > min_dist:
             continue
         visited.add(state)
-        for (i, j), val in get_neighbors_vals(matrix, state, p2=True):
-            new_states = list(get_new_states(state, (i, j), val))
-            # new_state = ((i, j), state[1])
+        for i in range(4):
+            candidates = dfs((state[0], state[1], i), matrix, dict(), dict(), 0, p2=True)
+            if candidates:
+                for new_key, dist_to_key in candidates.items():
+                    found_keys = tuple(sorted(set(state[1]) | set(new_key)))
+                    new_positions = tuple(state[0][j] if j != i else all_keys[new_key] for j in range(4))
+                    new_state = (new_positions, found_keys, 0)
 
-            for new_state in new_states:
-
-                # new_pos, new_found, new_move = new_state
-                # if new_found == ("b", "c") and new_move == 2:
-                #     x = new_state in visited
-                #     y = distances[new_state]
-                #     print()
-
-                if new_state not in visited or distances[new_state] > dist + 1:
-                    # if dist + 1 > min_dist:
-                    #     continue
-                    distances[new_state] = dist + 1
-                    if val.islower() and len(new_state[1]) == len(all_keys):
-                        complete_pos_dist.add((new_state, distances[new_state]))
-                        complete.add(distances[new_state])
-                        min_dist = min(complete)
-                        continue
-                    heappush(pq, (dist + 1, new_state))
+                    if new_state not in visited and distances[
+                        new_state] >= dist + dist_to_key:
+                        distances[new_state] = dist + dist_to_key
+                        if len(new_state[1]) == len(all_keys):
+                            complete.add(distances[new_state])
+                            min_dist = min(complete)
+                            continue
+                        heappush(pq, (dist + dist_to_key, new_state))
     min_dist = min(complete)
 
     return min_dist
@@ -216,9 +212,11 @@ def main(filename: str) -> Tuple[Optional[int], Optional[int]]:
     answer_a = min_cost(grid, start_pos, all_keys)
     print(f"p1: {answer_a}")
     # #p2
+    if "sample" in filename:
+        filename = "sample2.txt"
     grid, start_pos, all_keys = parse(filename)
     new_start_pos = modify_grid_for_p2(grid, start_pos)
-    pprint(grid)
+    print()
     answer_b = min_cost_p2(grid, new_start_pos, all_keys)
     # print(f"p2: {answer_b}")
     end = time()
@@ -234,10 +232,10 @@ if __name__ == "__main__":
     sample = "sample.txt"
     inp = "input.txt"
 
-    sample_a_answer = 114
+    sample_a_answer = 136
     sample_b_answer = 72
 
-    answer_a, answer_b = main(sample)
+    answer_a, answer_b = main(inp)
     assert (
         answer_a == sample_a_answer
     ), f"AnswerA incorrect: Actual: {answer_a}, Expected: {sample_a_answer}"
@@ -251,7 +249,7 @@ if __name__ == "__main__":
     # Test on your input and submit
     answer_a, answer_b = main(inp)
     print(f"Your input answers: \nA: {answer_a}\nB: {answer_b}")
-    try:
-        submit_answer(answer_a, "a", day=15, year=2019)
-    except AocdError:
-        submit_answer(answer_b, "b", day=15, year=2019)
+    # try:
+    #     submit_answer(answer_a, "a", day=15, year=2019)
+    # except AocdError:
+    #     submit_answer(answer_b, "b", day=15, year=2019)

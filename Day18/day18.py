@@ -46,13 +46,12 @@ def pprint(grid):
 
 
 def get_neighbors_vals(
-    matrix: List[List[str]], pos, found, all_doors=False,
-    p2=False) -> Generator[Tuple[Tuple[int, int], str], None, None]:
-    # if not p2:
-    #     (i, j), found = state
-    # else:
-    #     curr_positions, found, move = state
-    #     i, j = curr_positions[move]
+    matrix: List[List[str]],
+    pos,
+    found,
+    all_doors=False,
+) -> Generator[Tuple[Tuple[int, int], str], None, None]:
+
     i, j = pos
 
     neighbors = []
@@ -73,7 +72,13 @@ def get_neighbors_vals(
         yield from (
             ((x, y), matrix[x][y])
             for (x, y) in neighbors
-            if not (matrix[x][y] == "#" or (matrix[x][y].isupper() and matrix[x][y].lower() not in found))
+            if not (
+                matrix[x][y] == "#"
+                or (
+                    matrix[x][y].isupper()
+                    and matrix[x][y].lower() not in found
+                )
+            )
         )
     else:
         yield from (
@@ -111,7 +116,9 @@ def create_adj_list(matrix, start_pos, all_keys, all_doors, p2=False):
 
     adj = {}
     for elem in all_elems:
-         adj.update(dfs(all_elems[elem], matrix, elem, dict(), defaultdict(dict), 0))
+        adj.update(
+            dfs(all_elems[elem], matrix, elem, dict(), defaultdict(dict), 0)
+        )
     return adj
 
 
@@ -126,8 +133,6 @@ def min_cost(matrix, start_pos, all_keys, all_doors):
     pq = [(0, start_state)]
     visited = set()
 
-    # x = dfs(start_state, matrix, dict(), dict(), 0)
-    # print()
     while pq:
         dist, state = heappop(pq)
         elem, found = state
@@ -140,11 +145,17 @@ def min_cost(matrix, start_pos, all_keys, all_doors):
             for new_key, dist_to_key in neighbors.items():
                 if new_key.isupper() and new_key.lower() not in found:
                     continue
-                new_state = (new_key,
-                             found if not new_key.islower()
-                             else tuple(sorted(set(found) | set(new_key))))
+                new_state = (
+                    new_key,
+                    found
+                    if not new_key.islower()
+                    else tuple(sorted(set(found) | set(new_key))),
+                )
 
-                if new_state not in visited or distances[new_state] >= dist + dist_to_key:
+                if (
+                    new_state not in visited
+                    or distances[new_state] >= dist + dist_to_key
+                ):
                     distances[new_state] = dist + dist_to_key
                     if len(new_state[1]) == len(all_keys):
                         complete.add(distances[new_state])
@@ -195,10 +206,11 @@ def get_keys_per_region(start, adj):
     return region_keys
 
 
-
 def min_cost_p2(matrix, start_pos, all_keys, all_doors):
     G = create_adj_list(matrix, start_pos, all_keys, all_doors, p2=True)
-    keys_per_region = [get_keys_per_region(x, G) for x in ("@1", "@2", "@3", "@4")]
+    keys_per_region = [
+        get_keys_per_region(x, G) for x in ("@1", "@2", "@3", "@4")
+    ]
 
     complete = set()
     min_dist = float("inf")
@@ -209,8 +221,6 @@ def min_cost_p2(matrix, start_pos, all_keys, all_doors):
     pq = [(0, start_state)]
     visited = set()
 
-    # x = dfs(start_state, matrix, dict(), dict(), 0)
-    # print()
     while pq:
         dist, state = heappop(pq)
         elements, found = state
@@ -219,18 +229,29 @@ def min_cost_p2(matrix, start_pos, all_keys, all_doors):
         visited.add(state)
 
         for i, elem in enumerate(elements):
-            if not set(keys_per_region[i]) - set(found): # already found all keys for specific one
+            if not set(keys_per_region[i]) - set(
+                found
+            ):  # already found all keys for specific one
                 continue
             neighbors = G[elem]
             if neighbors:
                 for new_key, dist_to_key in neighbors.items():
                     if new_key.isupper() and new_key.lower() not in found:
                         continue
-                    new_state = (tuple(elements[j] if j != i else new_key for j in range(4)),
-                                 found if not new_key.islower()
-                                 else tuple(sorted(set(found) | set(new_key))))
+                    new_state = (
+                        tuple(
+                            elements[j] if j != i else new_key
+                            for j in range(4)
+                        ),
+                        found
+                        if not new_key.islower()
+                        else tuple(sorted(set(found) | set(new_key))),
+                    )
 
-                    if new_state not in visited or distances[new_state] > dist + dist_to_key:
+                    if (
+                        new_state not in visited
+                        or distances[new_state] > dist + dist_to_key
+                    ):
                         distances[new_state] = dist + dist_to_key
                         if len(new_state[1]) == len(all_keys):
                             complete.add(distances[new_state])
@@ -249,7 +270,7 @@ def main(filename: str) -> Tuple[Optional[int], Optional[int]]:
     grid, start_pos, all_keys, all_doors = parse(filename)
     answer_a = min_cost(grid, start_pos, all_keys, all_doors)
     print(f"p1: {answer_a}")
-    #p2
+    # p2
     if "sample" in filename:
         filename = "sample2.txt"
     grid, start_pos, all_keys, all_doors = parse(filename)
@@ -267,6 +288,7 @@ if __name__ == "__main__":
     from utils import submit_answer
     from aocd.exceptions import AocdError
     from aocd.models import Puzzle
+
     puzzle = Puzzle(year=2019, day=18)
 
     sample = "sample.txt"

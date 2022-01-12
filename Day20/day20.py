@@ -100,57 +100,6 @@ def pprint(grid):
         print("".join(row))
 
 
-def dfs(curr: Tuple, move, intcode: IntCode, visited: Dict, walls: Set):
-    curr_pos, val = curr
-    assert curr_pos not in walls  # test
-    if move:
-        intcode.add_input(move)
-        intcode.run()
-    visited[curr_pos] = val
-    neighbors = explore_neighbors(intcode)
-    for i, neigh in enumerate(neighbors):
-        neigh_pos = out_idx_to_coords(i, curr_pos)
-        if neigh == 0:
-            walls.add(neigh_pos)
-        else:
-            if neigh_pos in visited:
-                assert neigh == visited[neigh_pos]  # test
-            else:
-                dfs((neigh_pos, neigh), i + 1, intcode, visited, walls)
-    if move:
-        intcode.add_input(BACKTR[move])
-        intcode.run()
-
-    return visited
-
-
-def print_path(matrix, origin, start, end):
-    num_rows = len(matrix)
-    num_cols = len(matrix[0])
-
-    path = set()
-    node = end
-    while node != start:
-        next_node = origin[node]
-        path.add(node)
-        node = next_node
-    path.add(start)
-
-    match = {float("inf"): "#", 0: "S", 1: ".", 2: "T"}
-    matrix[start[0]][start[1]] = 0
-    matrix[end[0]][end[1]] = 2
-
-    for i in range(num_rows):
-        row_str = ""
-        for j in range(num_cols):
-            val = match[matrix[i][j]]
-            if (i, j) in path:
-                row_str += colored(str(val), "red")
-            else:
-                row_str += f"{str(val)}"
-        print(row_str)
-
-
 def get_neighbors_vals(
     matrix: List[List[str]], i: int, j: int, portals: Dict
 ) -> Generator[Tuple[Tuple[int, int], Union[int, float]], None, None]:

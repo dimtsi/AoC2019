@@ -257,13 +257,12 @@ def min_cost_p2(matrix, portals):
         dist, (elem, depth) = heappop(pq)
         if (elem, depth) in visited:
             continue
-        if (elem, depth) == (end_pos, 0):
-            break
+
         visited.add((elem, depth))
         for (i, j), new_depth in get_neighbors_p2(
             matrix, *elem, portals, depth, start_pos, end_pos
         ):
-            if ((i, j), new_depth) not in visited and distances[
+            if not new_depth > len(portals) and ((i, j), new_depth) not in visited and distances[
                 ((i, j), new_depth)
             ] > dist + 1:
                 distances[((i, j), new_depth)] = dist + 1

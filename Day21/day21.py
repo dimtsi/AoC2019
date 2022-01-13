@@ -20,17 +20,6 @@ from time import sleep
 from intcode import IntCode
 from termcolor import colored
 
-TEST_INSTR = \
-"""NOT A T
-NOT B J
-OR T J
-NOT C T
-OR T J
-NOT D T
-OR T J
-WALK
-"""
-
 
 def parse(filename: str) -> IntCode:
     matrix = []
@@ -53,19 +42,52 @@ def print_out(intcode):
     for grid in "".join(outs).split("\n\n"):
         print(grid)
         from time import sleep
-        sleep(1)
-
+        sleep(0.3)
+    # NOT B T
+    # OR T J
+    # NOT C T
+    # OR J T
+    # NOT D J
+    # OR T J
+    # WALK
 
 def run_program(intcode):
     # cmd = "NOT A J\nNOT B J\nNOT C J\nNOT D J\nWALK\n"
-    cmd = TEST_INSTR
+    instr = """NOT C T
+    NOT D J
+    NOT J J
+    AND T J
+    NOT A T
+    OR T J
+    WALK
+    """
+    cmd = instr
     intcode.inputs.extend(str_to_cmd(cmd))
     intcode.run()
+    try:
+        print_out(intcode)
+    except ValueError:
+        return intcode.outs[-1]
 
-    print_out(intcode)
-    print()
 
-
+def run_program_p2(intcode):
+    instr = """NOT C J
+    AND D J
+    AND H J
+    NOT B T
+    AND D T
+    OR T J
+    NOT A T
+    OR T J
+    RUN
+    """
+    cmd = instr
+    intcode.inputs.extend(str_to_cmd(cmd))
+    intcode.run()
+    try:
+        print_out(intcode)
+    except ValueError:
+        return intcode.outs[-1]
 
 def main(filename: str) -> Tuple[Optional[int], Optional[int]]:
     from time import time
@@ -73,12 +95,11 @@ def main(filename: str) -> Tuple[Optional[int], Optional[int]]:
     start = time()
     answer_a, answer_b = None, None
     intcode = parse(filename)
-    run_program(intcode)
-    answer_a = sum([x * y for x, y in intersections])
+    answer_a = run_program(intcode)
     print(f"p1: {answer_a}")
     # p2
     intcode = parse(filename)
-    answer_b = run_program_2(intcode)
+    answer_b = run_program_p2(intcode)
     print(f"p2: {answer_b}")
     end = time()
     print(end - start)

@@ -11,11 +11,14 @@ class IntCode:
         self.program = deepcopy(self.addr)
         self.ops = {1: 3, 2: 3, 99: 0, 3: 1, 4: 1, 5: 2, 6: 2, 7: 3, 8: 3, 9: 1} # opcode -> n_params
         self.outs = []
+        self.out_l = []
         self.inputs = []
         self.is_halted = False
         self.pointer = 0
         self.rel_base = 0
         self.count = 0
+        self.waiting_for_input = False
+        self.is_idle = False
 
     def get_op_mode_params(self, i):
         val = self.addr[i]
@@ -58,13 +61,17 @@ class IntCode:
             elif op == 3:
                 assert modes[-1] in {0, 2}
                 if not self.inputs:
-                    f"waiting for input. Returning"
+                    # self.inputs.extend([-1])
+                    self.waiting_for_input = True
+                    # print(f"waiting for input. Returning")
                     return
                 else:
+                    self.waiting_for_input = False
                     target_addr = params[-1] if modes[-1] == 0 else params[-1] + self.rel_base
                     self.addr[target_addr] = self.inputs.pop(0)
             elif op == 4:
                 self.outs.append(updated_params[-1])
+
             elif op == 5:
                 if updated_params[0] != 0:
                     jump = updated_params[-1]
@@ -106,3 +113,8 @@ class IntCode:
             except TypeError as err:
                 self.inputs.append(inp)
 
+    def flush_output(self):
+        self.outs = []
+
+    def __repr__(self):
+        return f"inputs: {self.inputs}, outputs: {self.outs}"

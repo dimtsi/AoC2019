@@ -35,7 +35,7 @@ def parse(filename: str) -> IntCode:
 def dispatch(outs, computers, NAT, p2):
     assert len(outs) % 3 == 0
     for i in range(0, len(outs), 3):
-        addr, x, y = outs[i], outs[i+1], outs[i+2]
+        addr, x, y = outs[i], outs[i + 1], outs[i + 2]
         if addr == 255:
             if not p2:
                 print(addr, x, y)
@@ -49,7 +49,6 @@ def dispatch(outs, computers, NAT, p2):
 
 
 def check_idle(comps):
-
     for comp in comps:
         if comp.inputs:
             return False
@@ -90,7 +89,6 @@ def run_program(intcode, p2=False):
                 comps[0].inputs.extend(NAT)
                 nat_history.append(NAT[-1])
         [comp.flush_output() for comp in comps]
-
 
 
 def main(filename: str) -> Tuple[Optional[int], Optional[int]]:
